@@ -4,9 +4,9 @@
     "parameters": {
         "storagename": {
             "type": "string",
-            "defaultValue":"[concat('azsecvmstrg', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('azsecvmstrg', uniqueString(resourceGroup().id))]",
             "metadata": {
-                "description":"Unique Storage Account name"
+                "description": "Unique Storage Account name"
             }
         },
         "vm-dns": {
@@ -31,13 +31,9 @@
         },
         "vmsize": {
             "type": "string",
-            "defaultValue": "Standard_B2ms",
+            "defaultValue": "Standard_D2s_v3",
             "allowedValues": [
-                "Standard_B2ms",
-                "Standard_D2s_v3",
-                "Standard_D4s_v3",
-                "Standard_D8s_v3",
-                "Standard_D8s_v4"
+                "Standard_D2s_v3", "Standard_DC1s_v2", "Standard_DC1s_v2"
             ],
             "metadata": {
                 "description": "VM Size for azsecwin-vm"
@@ -65,10 +61,10 @@
             }
         }
     },
-    "variables":{
+    "variables": {
         "scriptUrl": "[uri(parameters('_artifactsLocation'),concat('installscript.ps1',parameters('_artifactsLocationSasToken')))]"
     },
-    "resources": [    
+    "resources": [
         {
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2019-06-01",
@@ -81,7 +77,6 @@
             "tags": {
                 "displayName": "Azure Security Book Storage Account"
             }
-            
         },
         {
             "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
@@ -163,7 +158,6 @@
                             "addressPrefix": "10.0.1.0/24"
                         }
                     }
-
                 ]
             }
         },
@@ -201,7 +195,7 @@
             "apiVersion": "2019-07-01",
             "name": "azsecwinvm",
             "location": "[parameters('location')]",
-            "dependsOn": [ 
+            "dependsOn": [
                 "[resourceId('Microsoft.Storage/storageAccounts', parameters('storagename'))]",
                 "[resourceId('Microsoft.Network/networkInterfaces', 'azsecwinvm-nic')]"
             ],
@@ -221,7 +215,7 @@
                     "imageReference": {
                         "publisher": "MicrosoftWindowsServer",
                         "offer": "WindowsServer",
-                        "sku": "2019-Datacenter",
+                        "sku": "2022-datacenter-azure-edition",
                         "version": "latest"
                     },
                     "osDisk": {
@@ -272,88 +266,88 @@
             }
         },
         {
-      "type": "Microsoft.Network/networkInterfaces",
-      "apiVersion": "2020-06-01",
-      "name": "azseclinvm-nic",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/virtualNetworks', 'azsec-VirtualNetwork')]"
-      ],
-      "properties": {
-        "ipConfigurations": [
-          {
-            "name": "ipconfig1",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2020-06-01",
+            "name": "azseclinvm-nic",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'azsec-VirtualNetwork')]"
+            ],
             "properties": {
-              "subnet": {
-                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'azsec-VirtualNetwork', 'private-subnet')]"
-              },
-              "privateIPAllocationMethod": "Dynamic"
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'azsec-VirtualNetwork', 'private-subnet')]"
+                            },
+                            "privateIPAllocationMethod": "Dynamic"
+                        }
+                    }
+                ]
             }
-          }
-        ]
-      }
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines",
-      "apiVersion": "2020-06-01",
-      "name": "azseclinvm",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', 'azseclinvm-nic')]"
-      ],
-      "properties": {
-        "hardwareProfile": {
-          "vmSize": "[parameters('VmSize')]"
         },
-        "storageProfile": {
-          "osDisk": {
-            "createOption": "fromImage",
-            "managedDisk": {
-              "storageAccountType": "Standard_LRS"
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2020-06-01",
+            "name": "azseclinvm",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'azseclinvm-nic')]"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('VmSize')]"
+                },
+                "storageProfile": {
+                    "osDisk": {
+                        "createOption": "fromImage",
+                        "managedDisk": {
+                            "storageAccountType": "Standard_LRS"
+                        }
+                    },
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'azseclinvm-nic')]"
+                        }
+                    ]
+                },
+                "osProfile": {
+                    "computerName": "azseclinvm",
+                    "adminUsername": "[parameters('adminUser')]",
+                    "adminPassword": "[parameters('adminPassword')]"
+                }
             }
-          },
-          "imageReference": {
-            "publisher": "Canonical",
-            "offer": "UbuntuServer",
-            "sku": "18.04-LTS",
-            "version": "latest"
-          }
         },
-        "networkProfile": {
-          "networkInterfaces": [
-            {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', 'azseclinvm-nic')]"
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat('azseclinvm','/apacheinstall')]",
+            "apiVersion": "2020-06-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines/', 'azseclinvm')]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "[uri(parameters('_artifactsLocation'), concat('install_apache.sh', parameters('_artifactsLocationSasToken')))]"
+                    ],
+                    "commandToExecute": "sh install_apache.sh"
+                }
             }
-          ]
-        },
-        "osProfile": {
-          "computerName": "azseclinvm",
-          "adminUsername": "[parameters('adminUser')]",
-          "adminPassword": "[parameters('adminPassword')]"
         }
-      }
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "[concat('azseclinvm','/apacheinstall')]",
-      "apiVersion": "2020-06-01",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines/', 'azseclinvm')]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Azure.Extensions",
-        "type": "CustomScript",
-        "typeHandlerVersion": "2.0",
-        "autoUpgradeMinorVersion": true,
-        "settings": {
-          "fileUris": [
-            "[uri(parameters('_artifactsLocation'), concat('install_apache.sh', parameters('_artifactsLocationSasToken')))]"
-          ],
-          "commandToExecute": "sh install_apache.sh"
-        }
-      }
-    }
     ],
     "outputs": {
         "winvm-dns": {
